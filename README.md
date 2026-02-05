@@ -9,7 +9,7 @@ no more silent hangs. no more tab-hopping.
 </p>
 
 <p align="center">
-works with <b>Claude Code</b> &middot; <b>Aider</b> &middot; <b>Codex</b> &middot; <b>Cline</b> &middot; <b>Roo</b> &middot; <b>Cursor</b> &middot; or any TUI-based tool
+works with <b>Claude Code</b> &middot; <b>Codex</b> ;  or any TUI-based tool
 </p>
 
 <p align="center">
@@ -32,6 +32,7 @@ works with <b>Claude Code</b> &middot; <b>Aider</b> &middot; <b>Codex</b> &middo
 \__/ \___//_/    /_/ /_/ /_/\____//_/  /_/
 </pre>
 </p>
+<img width="1907" height="957" alt="image" src="https://github.com/user-attachments/assets/645957a3-8c9e-49a8-92ea-aab39945c4e5" />
 
 ---
 
