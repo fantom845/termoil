@@ -22,20 +22,6 @@ works with <b>Claude Code</b> &middot; <b>Codex</b> ;  or any TUI-based tool
   <a href="#keybindings">Keybindings</a>
 </p>
 
----
-<p align="center">
-<pre>
- _____                             ___________
-  __  /___________________ ____________(_)__  /
- _  __/  _ \_  ___/_  __ `__ \  __ \_  /__  /
-/ /_ /  __/  /   _  / / / / / /_/ /  / _  /
-\__/ \___//_/    /_/ /_/ /_/\____//_/  /_/
-</pre>
-</p>
-<img width="1907" height="957" alt="image" src="https://github.com/user-attachments/assets/645957a3-8c9e-49a8-92ea-aab39945c4e5" />
-
----
-
 ## Install
 
 ```bash
