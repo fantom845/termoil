@@ -4,6 +4,10 @@ version = "0.1.0"
 edition = "2021"
 description = "Less friction for your multi-agent workflow"
 license = "MIT"
+repository = "https://github.com/fantom845/termoil"
+homepage = "https://github.com/fantom845/termoil"
+keywords = ["terminal", "multiplexer", "tui", "ai", "agent"]
+categories = ["command-line-utilities"]
 
 [dependencies]
 ratatui = "0.29"
