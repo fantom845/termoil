@@ -203,4 +203,10 @@ impl Pane {
         let _ = nix_write(&self.master, data);
         Ok(())
     }
+
+    pub fn terminate(&self) {
+        unsafe {
+            libc::kill(self.child_pid.as_raw(), libc::SIGHUP);
+        }
+    }
 }

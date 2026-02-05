@@ -3,6 +3,7 @@ mod ui;
 mod watchdog;
 
 use anyhow::Result;
+use clap::Parser;
 use crossterm::{
     event::{
         self, DisableMouseCapture, EnableMouseCapture, Event, KeyCode, KeyEventKind, KeyModifiers,
@@ -17,6 +18,14 @@ use std::io;
 use std::time::Duration;
 
 const UI_POLL_MS: u64 = 16;
+
+#[derive(Parser)]
+#[command(
+    name = "termoil",
+    version,
+    about = "Less friction for your multi-agent workflow"
+)]
+struct Cli {}
 
 fn mouse_modifier_bits(modifiers: KeyModifiers) -> u8 {
     let mut bits = 0;
@@ -116,6 +125,61 @@ impl App {
         }
     }
 
+    fn selected_grid_inner_size(&self, term_h: u16, term_w: u16) -> (u16, u16) {
+        if self.panes.is_empty() {
+            return (24, 80);
+        }
+        let areas = ui::compute_pane_areas(
+            Rect::new(0, 7, term_w, term_h.saturating_sub(7)),
+            self.panes.len(),
+        );
+        if let Some(area) = areas.get(self.selected) {
+            (
+                area.height.saturating_sub(2).max(1),
+                area.width.saturating_sub(2).max(1),
+            )
+        } else {
+            (24, 80)
+        }
+    }
+
+    fn close_selected_pane(&mut self) {
+        if self.panes.is_empty() {
+            return;
+        }
+
+        if let Some(pane) = self.panes.get(self.selected) {
+            pane.terminate();
+        }
+
+        self.panes.remove(self.selected);
+        self.attention.remove(self.selected);
+
+        if self.panes.is_empty() {
+            self.selected = 0;
+            self.zoomed = false;
+            self.scroll_offset = 0;
+        } else if self.selected >= self.panes.len() {
+            self.selected = self.panes.len() - 1;
+        }
+    }
+
+    fn restart_selected_pane(&mut self, term_h: u16, term_w: u16) {
+        if self.panes.is_empty() {
+            return;
+        }
+
+        let idx = self.selected;
+        let (rows, cols) = self.selected_grid_inner_size(term_h, term_w);
+        if let Ok(new_pane) = Pane::spawn_shell(rows, cols) {
+            if let Some(old_pane) = self.panes.get(idx) {
+                old_pane.terminate();
+            }
+            self.panes[idx] = new_pane;
+            self.attention[idx] = false;
+        }
+    }
+
     fn navigate(&mut self, direction: KeyCode) {
         if self.panes.is_empty() {
             return;
@@ -176,6 +240,8 @@ impl App {
 }
 
 fn main() -> Result<()> {
+    Cli::parse();
+
     let original_hook = std::panic::take_hook();
     std::panic::set_hook(Box::new(move |panic_info| {
         let _ = disable_raw_mode();
@@ -261,6 +327,26 @@ fn run<B: Backend + io::Write>(terminal: &mut Terminal<B>, app: &mut App) -> Res
                             KeyCode::Char('n') if app.panes.len() < 9 => {
                                 let _ = app.spawn_shell(24, 80);
                                 app.resize_all_to_grid(size.height, size.width);
+                            }
+                            KeyCode::Char('x') => {
+                                app.close_selected_pane();
+                            }
+                            KeyCode::Char('r') => {
+                                app.restart_selected_pane(size.height, size.width);
+                            }
+                            KeyCode::Char(c) if ('1'..='9').contains(&c) => {
+                                let idx = (c as u8 - b'1') as usize;
+                                if idx < app.panes.len() {
+                                    app.selected = idx;
+                                    app.zoomed = true;
+                                    app.scroll_offset = 0;
+                                    if let Some(pane) = app.panes.get_mut(app.selected) {
+                                        pane.resize(
+                                            size.height.saturating_sub(2),
+                                            size.width.saturating_sub(2),
+                                        );
+                                    }
+                                }
                             }
                             KeyCode::Up | KeyCode::Down | KeyCode::Left | KeyCode::Right => {
                                 app.navigate(key.code);

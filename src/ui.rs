@@ -10,6 +10,12 @@ const LOGO: &str = r#" _____                             ___________
  _  __/  _ \_  ___/_  __ `__ \  __ \_  /__  /
 / /_ /  __/  /   _  / / / / / /_/ /  / _  /
 \__/ \___//_/    /_/ /_/ /_/\____//_/  /_/"#;
+const PURPLE: Color = Color::Rgb(147, 112, 219);
+const CYAN: Color = Color::Rgb(80, 210, 255);
+const BG: Color = Color::Rgb(20, 15, 30);
+const DIM: Color = Color::Rgb(50, 45, 70);
+const ALERT: Color = Color::Rgb(255, 80, 80);
+const ALERT_DIM: Color = Color::Rgb(80, 30, 30);
 
 pub fn grid_dimensions(count: usize) -> (usize, usize) {
     match count {
@@ -168,11 +174,11 @@ fn draw_grid(frame: &mut Frame, app: &App, area: Rect) {
 
     let header_block = Block::default()
         .borders(Borders::ALL)
-        .border_style(Style::default().fg(Color::Rgb(147, 112, 219)))
-        .style(Style::default().bg(Color::Rgb(20, 15, 30)));
+        .border_style(Style::default().fg(CYAN))
+        .style(Style::default().bg(BG));
 
     let logo = Paragraph::new(LOGO)
-        .style(Style::default().fg(Color::Rgb(147, 112, 219)))
+        .style(Style::default().fg(CYAN))
         .alignment(Alignment::Center)
         .block(header_block);
 
@@ -182,8 +188,8 @@ fn draw_grid(frame: &mut Frame, app: &App, area: Rect) {
         let empty_block = Block::default()
             .title(" No panes - press 'n' to spawn a shell ")
             .borders(Borders::ALL)
-            .border_style(Style::default().fg(Color::Rgb(100, 80, 140)))
-            .style(Style::default().bg(Color::Rgb(20, 15, 30)));
+            .border_style(Style::default().fg(DIM))
+            .style(Style::default().bg(BG));
 
         let hint = Paragraph::new("n: new shell  |  q: quit")
             .style(Style::default().fg(Color::DarkGray))
@@ -203,20 +209,20 @@ fn draw_grid(frame: &mut Frame, app: &App, area: Rect) {
 
         let border_color = if needs_attention && is_selected {
             if blink_on {
-                Color::Rgb(255, 80, 80)
+                ALERT
             } else {
-                Color::Rgb(147, 112, 219)
+                PURPLE
             }
         } else if needs_attention {
             if blink_on {
-                Color::Rgb(255, 80, 80)
+                ALERT
             } else {
-                Color::Rgb(80, 30, 30)
+                ALERT_DIM
             }
         } else if is_selected {
-            Color::Rgb(147, 112, 219)
+            PURPLE
         } else {
-            Color::Rgb(60, 50, 80)
+            DIM
         };
 
         let title = if needs_attention {
@@ -226,10 +232,10 @@ fn draw_grid(frame: &mut Frame, app: &App, area: Rect) {
         };
 
         let block = Block::default()
-            .title(title)
+            .title(Line::from(title).style(Style::default().fg(CYAN)))
             .borders(Borders::ALL)
             .border_style(Style::default().fg(border_color))
-            .style(Style::default().bg(Color::Rgb(20, 15, 30)));
+            .style(Style::default().bg(BG));
 
         frame.render_widget(block, pane_areas[i]);
         render_pane_cells(frame, pane, pane_areas[i]);
@@ -244,15 +250,16 @@ fn draw_zoomed(frame: &mut Frame, app: &App, area: Rect) {
         "mouse:off"
     };
 
+    let title = format!(
+        " shell {} (Ctrl+Space exit | F2 {} ) ",
+        app.selected + 1,
+        mouse_mode
+    );
     let block = Block::default()
-        .title(format!(
-            " shell {} (Ctrl+Space exit | F2 {} ) ",
-            app.selected + 1,
-            mouse_mode
-        ))
+        .title(Line::from(title).style(Style::default().fg(CYAN)))
         .borders(Borders::ALL)
-        .border_style(Style::default().fg(Color::Rgb(147, 112, 219)))
-        .style(Style::default().bg(Color::Rgb(20, 15, 30)));
+        .border_style(Style::default().fg(PURPLE))
+        .style(Style::default().bg(BG));
 
     frame.render_widget(block, area);
     render_pane_cells(frame, pane, area);
