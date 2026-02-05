@@ -11,16 +11,26 @@
 <h3 align="center">the lubricant for multi-agent workflows.<br/>end the turmoil.</h3>
 
 <p align="center">
+terminal dashboard for running multiple AI coding agents in parallel.<br/>
+monitors your shells and alerts you the moment an agent needs input.<br/>
+no more silent hangs. no more tab-hopping.
+</p>
+
+<p align="center">
+works with <b>Claude Code</b> &middot; <b>Aider</b> &middot; <b>Codex</b> &middot; <b>Cline</b> &middot; <b>Roo</b> &middot; <b>Cursor</b> &middot; or any TUI-based tool
+</p>
+
+<p align="center">
+<code>cargo install --git https://github.com/fantom845/termoil</code>
+</p>
+
+<p align="center">
   <a href="https://github.com/fantom845/termoil/releases">Releases</a> &middot;
   <a href="#install">Install</a> &middot;
   <a href="#keybindings">Keybindings</a>
 </p>
 
 ---
-
-termoil is a terminal dashboard for running multiple AI coding agents in parallel. It monitors your shells and alerts you the moment an agent needs input -- no more silent hangs, no more tab-hopping.
-
-Works with **Claude Code**, **Aider**, **Codex**, **Cline**, **Roo**, **Cursor**, or any TUI-based tool.
 
 ## Install
 
