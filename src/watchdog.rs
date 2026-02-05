@@ -29,8 +29,14 @@ impl Watchdog {
         ];
 
         Self {
-            patterns: pattern_strs.iter().filter_map(|p| Regex::new(p).ok()).collect(),
-            prompt_patterns: prompt_strs.iter().filter_map(|p| Regex::new(p).ok()).collect(),
+            patterns: pattern_strs
+                .iter()
+                .filter_map(|p| Regex::new(p).ok())
+                .collect(),
+            prompt_patterns: prompt_strs
+                .iter()
+                .filter_map(|p| Regex::new(p).ok())
+                .collect(),
         }
     }
 

@@ -4,7 +4,10 @@ mod watchdog;
 
 use anyhow::Result;
 use crossterm::{
-    event::{self, Event, KeyCode, KeyEventKind, KeyModifiers},
+    event::{
+        self, DisableMouseCapture, EnableMouseCapture, Event, KeyCode, KeyEventKind, KeyModifiers,
+        MouseEvent, MouseEventKind,
+    },
     execute,
     terminal::{disable_raw_mode, enable_raw_mode, EnterAlternateScreen, LeaveAlternateScreen},
 };
@@ -13,13 +16,52 @@ use ratatui::prelude::*;
 use std::io;
 use std::time::Duration;
 
+const UI_POLL_MS: u64 = 16;
+
+fn mouse_modifier_bits(modifiers: KeyModifiers) -> u8 {
+    let mut bits = 0;
+    if modifiers.contains(KeyModifiers::SHIFT) {
+        bits |= 4;
+    }
+    if modifiers.contains(KeyModifiers::ALT) {
+        bits |= 8;
+    }
+    if modifiers.contains(KeyModifiers::CONTROL) {
+        bits |= 16;
+    }
+    bits
+}
+
+fn encode_xterm_mouse(
+    encoding: vt100::MouseProtocolEncoding,
+    cb: u8,
+    x: u16,
+    y: u16,
+    release: bool,
+) -> Option<Vec<u8>> {
+    match encoding {
+        vt100::MouseProtocolEncoding::Sgr => {
+            let suffix = if release { 'm' } else { 'M' };
+            Some(format!("\x1b[<{};{};{}{}", cb, x, y, suffix).into_bytes())
+        }
+        vt100::MouseProtocolEncoding::Default | vt100::MouseProtocolEncoding::Utf8 => {
+            let cb_enc = cb.checked_add(32)?;
+            let x_enc = u8::try_from(x).ok()?.checked_add(32)?;
+            let y_enc = u8::try_from(y).ok()?.checked_add(32)?;
+            Some(vec![0x1b, b'[', b'M', cb_enc, x_enc, y_enc])
+        }
+    }
+}
+
 pub struct App {
     pub panes: Vec<Pane>,
     pub selected: usize,
     pub zoomed: bool,
+    pub mouse_capture_enabled: bool,
     pub watchdog: watchdog::Watchdog,
     pub attention: Vec<bool>,
     pub tick: u64,
+    pub scroll_offset: u16,
 }
 
 impl App {
@@ -28,9 +70,11 @@ impl App {
             panes: Vec::new(),
             selected: 0,
             zoomed: false,
+            mouse_capture_enabled: true,
             watchdog: watchdog::Watchdog::new(),
             attention: Vec::new(),
             tick: 0,
+            scroll_offset: 0,
         }
     }
 
@@ -47,11 +91,55 @@ impl App {
         for pane in &mut self.panes {
             pane.read_available();
         }
+        if self.zoomed {
+            return;
+        }
         for (i, pane) in self.panes.iter().enumerate() {
-            self.attention[i] = self.watchdog.needs_attention(
-                &pane.cursor_line(),
-                &pane.lines_near_cursor(),
-            );
+            self.attention[i] = self
+                .watchdog
+                .needs_attention(&pane.cursor_line(), &pane.lines_near_cursor());
+        }
+    }
+
+    fn resize_all_to_grid(&mut self, term_h: u16, term_w: u16) {
+        if self.panes.is_empty() {
+            return;
+        }
+        let areas = ui::compute_pane_areas(
+            Rect::new(0, 7, term_w, term_h.saturating_sub(7)),
+            self.panes.len(),
+        );
+        for (i, pane) in self.panes.iter_mut().enumerate() {
+            if let Some(area) = areas.get(i) {
+                pane.resize(area.height.saturating_sub(2), area.width.saturating_sub(2));
+            }
+        }
+    }
+
+    fn navigate(&mut self, direction: KeyCode) {
+        if self.panes.is_empty() {
+            return;
+        }
+        let count = self.panes.len();
+        let (_rows, cols) = ui::grid_dimensions(count);
+        let cur_row = self.selected / cols;
+        let cur_col = self.selected % cols;
+
+        let (new_row, new_col) = match direction {
+            KeyCode::Up => (cur_row.saturating_sub(1), cur_col),
+            KeyCode::Down => (cur_row + 1, cur_col),
+            KeyCode::Left => (cur_row, cur_col.saturating_sub(1)),
+            KeyCode::Right => (cur_row, cur_col + 1),
+            _ => return,
+        };
+
+        let mut new_idx = new_row * cols + new_col;
+        // Clamp to last pane on the target row if column doesn't exist
+        if new_idx >= count && new_row * cols < count {
+            new_idx = count - 1;
+        }
+        if new_idx < count {
+            self.selected = new_idx;
         }
     }
 
@@ -76,6 +164,11 @@ impl App {
             KeyCode::Right => vec![27, 91, 67],
             KeyCode::Left => vec![27, 91, 68],
             KeyCode::Esc => vec![27],
+            KeyCode::PageUp => vec![27, 91, 53, 126],
+            KeyCode::PageDown => vec![27, 91, 54, 126],
+            KeyCode::Home => vec![27, 91, 72],
+            KeyCode::End => vec![27, 91, 70],
+            KeyCode::Delete => vec![27, 91, 51, 126],
             _ => return,
         };
         let _ = pane.write_bytes(&bytes);
@@ -86,7 +179,7 @@ fn main() -> Result<()> {
     let original_hook = std::panic::take_hook();
     std::panic::set_hook(Box::new(move |panic_info| {
         let _ = disable_raw_mode();
-        let _ = execute!(io::stdout(), LeaveAlternateScreen);
+        let _ = execute!(io::stdout(), LeaveAlternateScreen, DisableMouseCapture);
         original_hook(panic_info);
     }));
 
@@ -95,58 +188,177 @@ fn main() -> Result<()> {
     execute!(stdout, EnterAlternateScreen)?;
     let backend = CrosstermBackend::new(stdout);
     let mut terminal = Terminal::new(backend)?;
+    terminal.clear()?;
 
     let mut app = App::new();
+    set_mouse_capture(&mut terminal, app.mouse_capture_enabled)?;
     let result = run(&mut terminal, &mut app);
 
     disable_raw_mode()?;
-    execute!(terminal.backend_mut(), LeaveAlternateScreen)?;
+    execute!(
+        terminal.backend_mut(),
+        LeaveAlternateScreen,
+        DisableMouseCapture
+    )?;
     terminal.show_cursor()?;
 
     result
 }
 
-fn run<B: Backend>(terminal: &mut Terminal<B>, app: &mut App) -> Result<()> {
+fn set_mouse_capture<B: Backend + io::Write>(
+    terminal: &mut Terminal<B>,
+    enabled: bool,
+) -> Result<()> {
+    if enabled {
+        execute!(terminal.backend_mut(), EnableMouseCapture)?;
+    } else {
+        execute!(terminal.backend_mut(), DisableMouseCapture)?;
+    }
+    Ok(())
+}
+
+fn run<B: Backend + io::Write>(terminal: &mut Terminal<B>, app: &mut App) -> Result<()> {
+    let ts = terminal.size()?;
+    let mut last_size = Rect::new(0, 0, ts.width, ts.height);
+
     loop {
         app.read_pty_output();
         terminal.draw(|f| ui::draw(f, app))?;
 
-        if event::poll(Duration::from_millis(50))? {
-            if let Event::Key(key) = event::read()? {
-                if key.kind != KeyEventKind::Press {
-                    continue;
-                }
-
-                if app.zoomed {
-                    if key.code == KeyCode::Char(' ') && key.modifiers.contains(KeyModifiers::CONTROL) {
-                        app.zoomed = false;
+        if event::poll(Duration::from_millis(UI_POLL_MS))? {
+            match event::read()? {
+                Event::Resize(w, h) => {
+                    let size = Rect::new(0, 0, w, h);
+                    last_size = size;
+                    if app.zoomed {
+                        if let Some(pane) = app.panes.get_mut(app.selected) {
+                            pane.resize(h.saturating_sub(2), w.saturating_sub(2));
+                        }
                     } else {
-                        app.send_key(key.code, key.modifiers);
+                        app.resize_all_to_grid(h, w);
                     }
-                } else {
-                    match key.code {
-                        KeyCode::Char('q') => return Ok(()),
-                        KeyCode::Char('n') => {
-                            let size = terminal.size()?;
-                            let _ = app.spawn_shell(size.height - 9, size.width - 2);
-                        }
-                        KeyCode::Up | KeyCode::Char('k') => {
-                            if app.selected > 0 {
-                                app.selected -= 1;
-                            }
-                        }
-                        KeyCode::Down | KeyCode::Char('j') => {
-                            if app.selected + 1 < app.panes.len() {
-                                app.selected += 1;
-                            }
-                        }
-                        KeyCode::Enter => {
-                            if !app.panes.is_empty() {
-                                app.zoomed = true;
-                            }
-                        }
-                        _ => {}
+                }
+                Event::Key(key) if key.kind == KeyEventKind::Press => {
+                    let size = last_size;
+                    if key.code == KeyCode::F(2) {
+                        app.mouse_capture_enabled = !app.mouse_capture_enabled;
+                        set_mouse_capture(terminal, app.mouse_capture_enabled)?;
+                        continue;
                     }
+                    if app.zoomed {
+                        if key.code == KeyCode::Char(' ')
+                            && key.modifiers.contains(KeyModifiers::CONTROL)
+                        {
+                            app.zoomed = false;
+                            app.scroll_offset = 0;
+                            app.resize_all_to_grid(size.height, size.width);
+                        } else {
+                            app.send_key(key.code, key.modifiers);
+                        }
+                    } else {
+                        match key.code {
+                            KeyCode::Char('q') => return Ok(()),
+                            KeyCode::Char('n') if app.panes.len() < 9 => {
+                                let _ = app.spawn_shell(24, 80);
+                                app.resize_all_to_grid(size.height, size.width);
+                            }
+                            KeyCode::Up | KeyCode::Down | KeyCode::Left | KeyCode::Right => {
+                                app.navigate(key.code);
+                            }
+                            KeyCode::Enter => {
+                                if !app.panes.is_empty() {
+                                    app.zoomed = true;
+                                    app.scroll_offset = 0;
+                                    if let Some(pane) = app.panes.get_mut(app.selected) {
+                                        pane.resize(
+                                            size.height.saturating_sub(2),
+                                            size.width.saturating_sub(2),
+                                        );
+                                    }
+                                }
+                            }
+                            _ => {}
+                        }
+                    }
+                }
+                Event::Mouse(mouse) if app.zoomed && app.mouse_capture_enabled => {
+                    app.handle_mouse(mouse, last_size);
+                }
+                _ => {}
+            }
+        }
+    }
+}
+
+impl App {
+    fn handle_mouse(&mut self, mouse: MouseEvent, term_area: Rect) {
+        if let Some(pane) = self.panes.get_mut(self.selected) {
+            let mode = pane.mouse_protocol_mode();
+            if mode == vt100::MouseProtocolMode::None {
+                return;
+            }
+
+            if term_area.width <= 2 || term_area.height <= 2 {
+                return;
+            }
+
+            // Zoomed mode uses a full-frame block with 1-cell border.
+            if mouse.column == 0
+                || mouse.row == 0
+                || mouse.column >= term_area.width.saturating_sub(1)
+                || mouse.row >= term_area.height.saturating_sub(1)
+            {
+                return;
+            }
+
+            let x = mouse.column;
+            let y = mouse.row;
+            let modifier_bits = mouse_modifier_bits(mouse.modifiers);
+
+            let event = match mouse.kind {
+                MouseEventKind::Down(button) => {
+                    let button_code = match button {
+                        crossterm::event::MouseButton::Left => 0,
+                        crossterm::event::MouseButton::Middle => 1,
+                        crossterm::event::MouseButton::Right => 2,
+                    };
+                    Some((button_code | modifier_bits, false))
+                }
+                MouseEventKind::Up(_) => Some((3 | modifier_bits, true)),
+                MouseEventKind::Drag(button) => {
+                    if matches!(
+                        mode,
+                        vt100::MouseProtocolMode::ButtonMotion
+                            | vt100::MouseProtocolMode::AnyMotion
+                    ) {
+                        let button_code = match button {
+                            crossterm::event::MouseButton::Left => 0,
+                            crossterm::event::MouseButton::Middle => 1,
+                            crossterm::event::MouseButton::Right => 2,
+                        };
+                        Some((button_code | 32 | modifier_bits, false))
+                    } else {
+                        None
+                    }
+                }
+                MouseEventKind::Moved => {
+                    if mode == vt100::MouseProtocolMode::AnyMotion {
+                        Some((35 | modifier_bits, false))
+                    } else {
+                        None
+                    }
+                }
+                MouseEventKind::ScrollUp => Some((64 | modifier_bits, false)),
+                MouseEventKind::ScrollDown => Some((65 | modifier_bits, false)),
+                MouseEventKind::ScrollLeft => Some((66 | modifier_bits, false)),
+                MouseEventKind::ScrollRight => Some((67 | modifier_bits, false)),
+            };
+
+            if let Some((cb, release)) = event {
+                if let Some(bytes) =
+                    encode_xterm_mouse(pane.mouse_protocol_encoding(), cb, x, y, release)
+                {
+                    let _ = pane.write_bytes(&bytes);
                 }
             }
         }
