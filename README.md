@@ -7,7 +7,6 @@
 <h3 align="center">the lubricant for multi-agent workflows.<br/>end the turmoil.</h3>
 
 <p align="center">
-  
 terminal dashboard for running multiple AI coding agents in parallel.<br/>
 monitors your shells and alerts you the moment an agent needs input.<br/>
 no more silent hangs. no more tab-hopping.
