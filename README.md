@@ -1,12 +1,4 @@
-<p align="center">
-<pre>
- _____                             ___________
-  __  /___________________ ____________(_)__  /
- _  __/  _ \_  ___/_  __ `__ \  __ \_  /__  /
-/ /_ /  __/  /   _  / / / / / /_/ /  / _  /
-\__/ \___//_/    /_/ /_/ /_/\____//_/  /_/
-</pre>
-</p>
+<h1 align="center">termoil</h1>
 
 <h3 align="center">the lubricant for multi-agent workflows.<br/>end the turmoil.</h3>
 
@@ -28,6 +20,17 @@ works with <b>Claude Code</b> &middot; <b>Aider</b> &middot; <b>Codex</b> &middo
   <a href="https://github.com/fantom845/termoil/releases">Releases</a> &middot;
   <a href="#install">Install</a> &middot;
   <a href="#keybindings">Keybindings</a>
+</p>
+
+---
+<p align="center">
+<pre>
+ _____                             ___________
+  __  /___________________ ____________(_)__  /
+ _  __/  _ \_  ___/_  __ `__ \  __ \_  /__  /
+/ /_ /  __/  /   _  / / / / / /_/ /  / _  /
+\__/ \___//_/    /_/ /_/ /_/\____//_/  /_/
+</pre>
 </p>
 
 ---
