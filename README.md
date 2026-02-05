@@ -1,21 +1,37 @@
-# termoil
+<p align="center">
+<pre>
+ _____                             ___________
+  __  /___________________ ____________(_)__  /
+ _  __/  _ \_  ___/_  __ `__ \  __ \_  /__  /
+/ /_ /  __/  /   _  / / / / / /_/ /  / _  /
+\__/ \___//_/    /_/ /_/ /_/\____//_/  /_/
+</pre>
+</p>
 
-Less friction for your multi-agent workflow.
+<h3 align="center">the lubricant for multi-agent workflows.<br/>end the turmoil.</h3>
 
-termoil is a terminal dashboard for running multiple AI coding agents in parallel. It monitors your shells and alerts you the moment an agent needs input — no more silent hangs, no more tab-hopping.
+<p align="center">
+  <a href="https://github.com/fantom845/termoil/releases">Releases</a> &middot;
+  <a href="#install">Install</a> &middot;
+  <a href="#keybindings">Keybindings</a>
+</p>
 
-Works with Claude Code, Aider, Codex, Cline, Roo, Cursor, or any TUI-based tool.
+---
+
+termoil is a terminal dashboard for running multiple AI coding agents in parallel. It monitors your shells and alerts you the moment an agent needs input -- no more silent hangs, no more tab-hopping.
+
+Works with **Claude Code**, **Aider**, **Codex**, **Cline**, **Roo**, **Cursor**, or any TUI-based tool.
 
 ## Install
 
 ```bash
-cargo install --path .
+cargo install --git https://github.com/fantom845/termoil
 ```
 
 Or build from source:
 
 ```bash
-git clone https://github.com/yourusername/termoil
+git clone https://github.com/fantom845/termoil
 cd termoil
 cargo build --release
 # binary at target/release/termoil
@@ -52,7 +68,7 @@ Press `n` to spawn shells. Run your agents inside them.
 
 ## How it works
 
-When an agent asks for permission — `[Y/n]`, `Allow?`, `Do you want to proceed?` — the pane border blinks red. Navigate to it, zoom in, respond, zoom out.
+When an agent asks for permission -- `[Y/n]`, `Allow?`, `Do you want to proceed?` -- the pane border blinks red. Navigate to it, zoom in, respond, zoom out.
 
 termoil spawns real PTY shells with full terminal emulation (colors, cursor positioning, mouse support). TUI apps like Claude Code and Codex work correctly inside panes.
 
