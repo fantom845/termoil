@@ -1,8 +1,13 @@
 <h1 align="center">termoil</h1>
 
+<p align="center">
+<code>cargo install --git https://github.com/fantom845/termoil</code>
+</p>
+<img width="1907" height="957" alt="image" src="https://github.com/user-attachments/assets/645957a3-8c9e-49a8-92ea-aab39945c4e5" />
 <h3 align="center">the lubricant for multi-agent workflows.<br/>end the turmoil.</h3>
 
 <p align="center">
+  
 terminal dashboard for running multiple AI coding agents in parallel.<br/>
 monitors your shells and alerts you the moment an agent needs input.<br/>
 no more silent hangs. no more tab-hopping.
@@ -12,9 +17,6 @@ no more silent hangs. no more tab-hopping.
 works with <b>Claude Code</b> &middot; <b>Codex</b> ;  or any TUI-based tool
 </p>
 
-<p align="center">
-<code>cargo install --git https://github.com/fantom845/termoil</code>
-</p>
 
 <p align="center">
   <a href="https://github.com/fantom845/termoil/releases">Releases</a> &middot;
