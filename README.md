@@ -4,7 +4,7 @@
 <code>brew install fantom845/tap/termoil</code> &middot; <code>cargo install termoil</code>
 </p>
 
-<https://github.com/fantom845/termoil/releases/download/v0.1.0/My.Movie.mp4>
+<https://github.com/user-attachments/assets/35a23dc0-cec3-49a9-9f87-920a13c4017f>
 
 <h3 align="center">the lubricant for multi-agent workflows.<br/>end the turmoil.</h3>
 
