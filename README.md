@@ -3,25 +3,32 @@
 <p align="center">
 <code>brew install fantom845/tap/termoil</code> &middot; <code>cargo install termoil</code>
 </p>
-<img width="1907" height="957" alt="image" src="https://github.com/user-attachments/assets/645957a3-8c9e-49a8-92ea-aab39945c4e5" />
+
+<https://github.com/fantom845/termoil/releases/download/v0.1.0/My.Movie.mp4>
+
 <h3 align="center">the lubricant for multi-agent workflows.<br/>end the turmoil.</h3>
 
 <p align="center">
-terminal dashboard for running multiple AI coding agents in parallel.<br/>
-monitors your shells and alerts you the moment an agent needs input.<br/>
-no more silent hangs. no more tab-hopping.
+works with <b>Claude Code</b> &middot; <b>Codex</b> &middot; <b>Aider</b> &middot; or any TUI-based tool
 </p>
-
-<p align="center">
-works with <b>Claude Code</b> &middot; <b>Codex</b> ;  or any TUI-based tool
-</p>
-
 
 <p align="center">
   <a href="https://github.com/fantom845/termoil/releases">Releases</a> &middot;
   <a href="#install">Install</a> &middot;
   <a href="#keybindings">Keybindings</a>
 </p>
+
+---
+
+Rant time: You're running Claude Code in 6 different worktrees. Aider in two more. Maybe a Codex session for good measure. You're in the zone, mass-parallelizing your entire sprint. Life is good.
+
+Then you check back 45 minutes later and realize half your agents have been sitting there, patiently waiting for you to type `y` on a file-write permission. For forty-five minutes. The work you thought was happening? Wasn't. The agent didn't crash. It didn't error. It just... waited. In a tab you forgot existed.
+
+You scramble through your terminals. Cmd+Tab. Cmd+Tab. Cmd+Tab. Which tab was the auth service? Was Aider on tab 4 or 7? You find one stuck agent, approve it, switch to the next tab -- wrong one. Switch again. There it is. Approve. Switch. Where's the third one? Was it in iTerm or the VS Code terminal?
+
+If you're tired of playing whack-a-mole with your AI agents, termoil is for you.
+
+One dashboard. All your agents. It blinks red when one needs you. That's it.
 
 ## Install
 
