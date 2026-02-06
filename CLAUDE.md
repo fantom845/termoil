@@ -30,7 +30,7 @@ Entry point. Owns `App` struct which holds all state: panes, selection, zoom, wa
 `Pane` struct wraps a forked child process with a PTY master fd. A background thread reads from the master fd and sends chunks via `mpsc::channel`. `read_available()` feeds chunks to the `vt100::Parser`, detects DSR cursor queries (`\x1b[6n`) across chunk boundaries using a 3-byte tail buffer, and responds with real cursor position. Also reaps zombie children via `waitpid(WNOHANG)`.
 
 ### src/ui.rs
-Rendering layer. `draw()` dispatches to `draw_grid()` or `draw_zoomed()`. Grid layout is computed by `grid_dimensions()` (1→1x1, 2→1x2, 3-4→2x2, 5-6→2x3, 7-9→3x3). Pane content is rendered cell-by-cell from vt100 to ratatui buffer preserving colors/attributes via `render_pane_cells()`. Color constants: `PURPLE` (main), `CYAN` (accent/titles), `ALERT`/`ALERT_DIM` (blinking red), `DIM` (unselected), `BG` (background).
+Rendering layer. `draw()` dispatches to `draw_grid()` or `draw_zoomed()`, then draws a one-line status bar with key hints and attention queue summary. Grid layout is computed by `grid_dimensions()` (1→1x1, 2→1x2, 3-4→2x2, 5-6→2x3, 7-9→3x3). Pane content is rendered cell-by-cell from vt100 to ratatui buffer preserving colors/attributes via `render_pane_cells()`. Color constants: `CYAN` (accent/titles/selection), `ALERT`/`ALERT_DIM` (blinking red), `DIM` (unselected), `BG` (background), `STATUS_BG` (status line).
 
 ### src/watchdog.rs
 `Watchdog` holds compiled regex patterns for attention triggers (`[y/n]`, `password:`, `do you want to`, etc.) and shell prompt patterns (`➜`, `$`, `%`, `user@`). `needs_attention()` checks lines near the cursor but suppresses if the cursor line itself is a shell prompt (avoids false positives from old output).
@@ -45,5 +45,5 @@ Rendering layer. `draw()` dispatches to `draw_grid()` or `draw_zoomed()`. Grid l
 
 ## Keybindings
 
-Grid view: `n` spawn, `q` quit, arrows navigate, `Enter` zoom.
+Grid view: `n` spawn, `x` close, `r` restart, arrows navigate, `1-9` open pane, `]`/`[` cycle attention queue, `a` acknowledge attention, `Enter` zoom, `q` quit.
 Zoomed: `Ctrl+Space` exit zoom, `F2` toggle mouse capture. All other keys pass through to child PTY.

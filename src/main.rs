@@ -62,6 +62,13 @@ fn encode_xterm_mouse(
     }
 }
 
+fn zoom_inner_size(term_h: u16, term_w: u16) -> (u16, u16) {
+    (
+        term_h.saturating_sub(3).max(1),
+        term_w.saturating_sub(2).max(1),
+    )
+}
+
 pub struct App {
     pub panes: Vec<Pane>,
     pub selected: usize,
@@ -71,6 +78,8 @@ pub struct App {
     pub attention: Vec<bool>,
     pub tick: u64,
     pub scroll_offset: u16,
+    attention_since: Vec<Option<u64>>,
+    acknowledged_generation: Vec<Option<u64>>,
 }
 
 impl App {
@@ -84,6 +93,8 @@ impl App {
             attention: Vec::new(),
             tick: 0,
             scroll_offset: 0,
+            attention_since: Vec::new(),
+            acknowledged_generation: Vec::new(),
         }
     }
 
@@ -91,6 +102,8 @@ impl App {
         let pane = Pane::spawn_shell(rows, cols)?;
         self.panes.push(pane);
         self.attention.push(false);
+        self.attention_since.push(None);
+        self.acknowledged_generation.push(None);
         self.selected = self.panes.len() - 1;
         Ok(())
     }
@@ -104,9 +117,25 @@ impl App {
             return;
         }
         for (i, pane) in self.panes.iter().enumerate() {
-            self.attention[i] = self
+            let raw_attention = self
                 .watchdog
                 .needs_attention(&pane.cursor_line(), &pane.lines_near_cursor());
+            let generation = pane.output_generation();
+            let suppressed =
+                self.acknowledged_generation.get(i).copied().flatten() == Some(generation);
+            let effective_attention = raw_attention && !suppressed;
+
+            self.attention[i] = effective_attention;
+            if effective_attention {
+                if self.attention_since[i].is_none() {
+                    self.attention_since[i] = Some(self.tick);
+                }
+            } else {
+                self.attention_since[i] = None;
+                if !raw_attention {
+                    self.acknowledged_generation[i] = None;
+                }
+            }
         }
     }
 
@@ -114,8 +143,9 @@ impl App {
         if self.panes.is_empty() {
             return;
         }
+        let main_h = term_h.saturating_sub(1);
         let areas = ui::compute_pane_areas(
-            Rect::new(0, 7, term_w, term_h.saturating_sub(7)),
+            Rect::new(0, 7, term_w, main_h.saturating_sub(7)),
             self.panes.len(),
         );
         for (i, pane) in self.panes.iter_mut().enumerate() {
@@ -129,8 +159,9 @@ impl App {
         if self.panes.is_empty() {
             return (24, 80);
         }
+        let main_h = term_h.saturating_sub(1);
         let areas = ui::compute_pane_areas(
-            Rect::new(0, 7, term_w, term_h.saturating_sub(7)),
+            Rect::new(0, 7, term_w, main_h.saturating_sub(7)),
             self.panes.len(),
         );
         if let Some(area) = areas.get(self.selected) {
@@ -154,6 +185,8 @@ impl App {
 
         self.panes.remove(self.selected);
         self.attention.remove(self.selected);
+        self.attention_since.remove(self.selected);
+        self.acknowledged_generation.remove(self.selected);
 
         if self.panes.is_empty() {
             self.selected = 0;
@@ -177,7 +210,65 @@ impl App {
             }
             self.panes[idx] = new_pane;
             self.attention[idx] = false;
+            self.attention_since[idx] = None;
+            self.acknowledged_generation[idx] = None;
         }
+    }
+
+    pub fn attention_queue(&self) -> Vec<usize> {
+        let mut queue: Vec<(u64, usize)> = self
+            .attention
+            .iter()
+            .enumerate()
+            .filter_map(|(idx, needs_attention)| {
+                if !*needs_attention {
+                    return None;
+                }
+                let since = self
+                    .attention_since
+                    .get(idx)
+                    .copied()
+                    .flatten()
+                    .unwrap_or(self.tick);
+                Some((since, idx))
+            })
+            .collect();
+        queue.sort_by_key(|(since, idx)| (*since, *idx));
+        queue.into_iter().map(|(_, idx)| idx).collect()
+    }
+
+    fn focus_next_attention(&mut self) {
+        let queue = self.attention_queue();
+        if queue.is_empty() {
+            return;
+        }
+        if let Some(pos) = queue.iter().position(|&idx| idx == self.selected) {
+            self.selected = queue[(pos + 1) % queue.len()];
+        } else {
+            self.selected = queue[0];
+        }
+    }
+
+    fn focus_prev_attention(&mut self) {
+        let queue = self.attention_queue();
+        if queue.is_empty() {
+            return;
+        }
+        if let Some(pos) = queue.iter().position(|&idx| idx == self.selected) {
+            self.selected = queue[(pos + queue.len() - 1) % queue.len()];
+        } else {
+            self.selected = *queue.last().unwrap_or(&queue[0]);
+        }
+    }
+
+    fn acknowledge_selected_attention(&mut self) {
+        if self.panes.is_empty() || self.selected >= self.panes.len() {
+            return;
+        }
+        let generation = self.panes[self.selected].output_generation();
+        self.acknowledged_generation[self.selected] = Some(generation);
+        self.attention[self.selected] = false;
+        self.attention_since[self.selected] = None;
     }
 
     fn navigate(&mut self, direction: KeyCode) {
@@ -298,7 +389,8 @@ fn run<B: Backend + io::Write>(terminal: &mut Terminal<B>, app: &mut App) -> Res
                     last_size = size;
                     if app.zoomed {
                         if let Some(pane) = app.panes.get_mut(app.selected) {
-                            pane.resize(h.saturating_sub(2), w.saturating_sub(2));
+                            let (rows, cols) = zoom_inner_size(h, w);
+                            pane.resize(rows, cols);
                         }
                     } else {
                         app.resize_all_to_grid(h, w);
@@ -334,6 +426,15 @@ fn run<B: Backend + io::Write>(terminal: &mut Terminal<B>, app: &mut App) -> Res
                             KeyCode::Char('r') => {
                                 app.restart_selected_pane(size.height, size.width);
                             }
+                            KeyCode::Char(']') => {
+                                app.focus_next_attention();
+                            }
+                            KeyCode::Char('[') => {
+                                app.focus_prev_attention();
+                            }
+                            KeyCode::Char('a') => {
+                                app.acknowledge_selected_attention();
+                            }
                             KeyCode::Char(c) if ('1'..='9').contains(&c) => {
                                 let idx = (c as u8 - b'1') as usize;
                                 if idx < app.panes.len() {
@@ -341,10 +442,8 @@ fn run<B: Backend + io::Write>(terminal: &mut Terminal<B>, app: &mut App) -> Res
                                     app.zoomed = true;
                                     app.scroll_offset = 0;
                                     if let Some(pane) = app.panes.get_mut(app.selected) {
-                                        pane.resize(
-                                            size.height.saturating_sub(2),
-                                            size.width.saturating_sub(2),
-                                        );
+                                        let (rows, cols) = zoom_inner_size(size.height, size.width);
+                                        pane.resize(rows, cols);
                                     }
                                 }
                             }
@@ -356,10 +455,8 @@ fn run<B: Backend + io::Write>(terminal: &mut Terminal<B>, app: &mut App) -> Res
                                     app.zoomed = true;
                                     app.scroll_offset = 0;
                                     if let Some(pane) = app.panes.get_mut(app.selected) {
-                                        pane.resize(
-                                            size.height.saturating_sub(2),
-                                            size.width.saturating_sub(2),
-                                        );
+                                        let (rows, cols) = zoom_inner_size(size.height, size.width);
+                                        pane.resize(rows, cols);
                                     }
                                 }
                             }

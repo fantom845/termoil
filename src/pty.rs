@@ -17,6 +17,7 @@ pub struct Pane {
     rx: Receiver<Vec<u8>>,
     pub child_pid: Pid,
     dsr_tail: Vec<u8>,
+    output_generation: u64,
 }
 
 impl Pane {
@@ -94,6 +95,7 @@ impl Pane {
                     rx,
                     child_pid: child,
                     dsr_tail: Vec::new(),
+                    output_generation: 0,
                 })
             }
         }
@@ -104,6 +106,8 @@ impl Pane {
         loop {
             match self.rx.try_recv() {
                 Ok(data) => {
+                    self.output_generation = self.output_generation.wrapping_add(1);
+
                     // Check for DSR across chunk boundary
                     let mut check = std::mem::take(&mut self.dsr_tail);
                     check.extend_from_slice(&data);
@@ -202,6 +206,10 @@ impl Pane {
     pub fn write_bytes(&mut self, data: &[u8]) -> Result<()> {
         let _ = nix_write(&self.master, data);
         Ok(())
+    }
+
+    pub fn output_generation(&self) -> u64 {
+        self.output_generation
     }
 
     pub fn terminate(&self) {

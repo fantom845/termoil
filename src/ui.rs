@@ -10,9 +10,9 @@ const LOGO: &str = r#" _____                             ___________
  _  __/  _ \_  ___/_  __ `__ \  __ \_  /__  /
 / /_ /  __/  /   _  / / / / / /_/ /  / _  /
 \__/ \___//_/    /_/ /_/ /_/\____//_/  /_/"#;
-const PURPLE: Color = Color::Rgb(147, 112, 219);
 const CYAN: Color = Color::Rgb(80, 210, 255);
 const BG: Color = Color::Rgb(20, 15, 30);
+const STATUS_BG: Color = Color::Rgb(14, 11, 24);
 const DIM: Color = Color::Rgb(50, 45, 70);
 const ALERT: Color = Color::Rgb(255, 80, 80);
 const ALERT_DIM: Color = Color::Rgb(80, 30, 30);
@@ -69,12 +69,18 @@ pub fn compute_pane_areas(area: Rect, count: usize) -> Vec<Rect> {
 
 pub fn draw(frame: &mut Frame, app: &App) {
     let area = frame.area();
+    let chunks = Layout::default()
+        .direction(Direction::Vertical)
+        .constraints([Constraint::Min(0), Constraint::Length(1)])
+        .split(area);
 
     if app.zoomed && !app.panes.is_empty() {
-        draw_zoomed(frame, app, area);
+        draw_zoomed(frame, app, chunks[0]);
     } else {
-        draw_grid(frame, app, area);
+        draw_grid(frame, app, chunks[0]);
     }
+
+    draw_status(frame, app, chunks[1]);
 }
 
 fn pane_inner_area(area: Rect) -> Rect {
@@ -166,6 +172,39 @@ fn render_pane_cells(frame: &mut Frame, pane: &Pane, area: Rect) {
     }
 }
 
+fn draw_status(frame: &mut Frame, app: &App, area: Rect) {
+    if area.width == 0 || area.height == 0 {
+        return;
+    }
+
+    let mode = if app.zoomed { "zoom" } else { "grid" };
+    let pane = if app.panes.is_empty() {
+        "-/-".to_string()
+    } else {
+        format!("{}/{}", app.selected + 1, app.panes.len())
+    };
+    let queue = app.attention_queue();
+    let next = queue
+        .first()
+        .map(|idx| (idx + 1).to_string())
+        .unwrap_or_else(|| "-".to_string());
+    let mouse = if app.mouse_capture_enabled {
+        "on"
+    } else {
+        "off"
+    };
+    let text = format!(
+        " mode:{} pane:{} attention:{} next:{} mouse:{} | n:new x:close r:restart 1-9:open [ ]:queue a:ack Enter:zoom Ctrl+Space:back F2:mouse q:quit ",
+        mode,
+        pane,
+        queue.len(),
+        next,
+        mouse
+    );
+    let status = Paragraph::new(text).style(Style::default().fg(CYAN).bg(STATUS_BG));
+    frame.render_widget(status, area);
+}
+
 fn draw_grid(frame: &mut Frame, app: &App, area: Rect) {
     let chunks = Layout::default()
         .direction(Direction::Vertical)
@@ -191,10 +230,11 @@ fn draw_grid(frame: &mut Frame, app: &App, area: Rect) {
             .border_style(Style::default().fg(DIM))
             .style(Style::default().bg(BG));
 
-        let hint = Paragraph::new("n: new shell  |  q: quit")
-            .style(Style::default().fg(Color::DarkGray))
-            .alignment(Alignment::Center)
-            .block(empty_block);
+        let hint =
+            Paragraph::new("n: new shell  |  1-9: open  |  x: close  |  r: restart  |  q: quit")
+                .style(Style::default().fg(Color::DarkGray))
+                .alignment(Alignment::Center)
+                .block(empty_block);
 
         frame.render_widget(hint, chunks[1]);
         return;
@@ -211,7 +251,7 @@ fn draw_grid(frame: &mut Frame, app: &App, area: Rect) {
             if blink_on {
                 ALERT
             } else {
-                PURPLE
+                CYAN
             }
         } else if needs_attention {
             if blink_on {
@@ -220,7 +260,7 @@ fn draw_grid(frame: &mut Frame, app: &App, area: Rect) {
                 ALERT_DIM
             }
         } else if is_selected {
-            PURPLE
+            CYAN
         } else {
             DIM
         };
@@ -258,7 +298,7 @@ fn draw_zoomed(frame: &mut Frame, app: &App, area: Rect) {
     let block = Block::default()
         .title(Line::from(title).style(Style::default().fg(CYAN)))
         .borders(Borders::ALL)
-        .border_style(Style::default().fg(PURPLE))
+        .border_style(Style::default().fg(CYAN))
         .style(Style::default().bg(BG));
 
     frame.render_widget(block, area);

@@ -66,9 +66,12 @@ Press `n` to spawn shells. Run your agents inside them.
 |-----|--------|
 | `n` | Spawn a new shell (max 9) |
 | Arrow keys | Navigate between panes |
+| `1`-`9` | Open pane by number |
 | `Enter` | Zoom into selected pane |
 | `x` | Close selected pane |
 | `r` | Restart selected pane |
+| `]` / `[` | Jump next/previous pane needing attention |
+| `a` | Acknowledge attention on selected pane |
 | `q` | Quit |
 
 ### Zoomed view

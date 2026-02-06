@@ -1,6 +1,6 @@
 [package]
 name = "termoil"
-version = "0.1.0"
+version = "0.1.1"
 edition = "2021"
 description = "Less friction for your multi-agent workflow"
 license = "MIT"
